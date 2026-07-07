@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Points Maximizer</title>
+<style>
+:root{--bg:#0f1115;--card:#1a1e26;--line:#2a303c;--ink:#e8eaf0;--mut:#8b93a3;
+ --pc:#e01e2d;--tri:#d31245;--ok:#3ddc84;--warn:#ffb020;--accent:#4d9fff;--r:14px}
+@media (prefers-color-scheme: light){:root{--bg:#f4f5f8;--card:#fff;--line:#e3e6ec;
+ --ink:#171a20;--mut:#69707f;--ok:#0a9d55;--warn:#b97300;--accent:#1668d6}}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,sans-serif;
+ padding:14px 14px calc(20px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto}
+h1{font-size:18px;margin:4px 0 12px;display:flex;align-items:center;gap:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+ padding:14px;margin-bottom:12px}
+.seg{display:flex;gap:6px;margin-bottom:10px}
+.seg button{flex:1;padding:9px 4px;border-radius:10px;border:1px solid var(--line);
+ background:none;color:var(--mut);font-size:13px;font-weight:600}
+.seg button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.seg button.on.pc{background:var(--pc);border-color:var(--pc)}
+.seg button.on.tri{background:var(--tri);border-color:var(--tri)}
+label{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;
+ display:block;margin:8px 0 3px}
+input[type=number],input[type=text]{width:100%;padding:11px 12px;border-radius:10px;
+ border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:17px}
+.row{display:flex;gap:8px;align-items:flex-end}
+.row>div{flex:1}
+.btn{padding:11px 14px;border-radius:10px;border:none;background:var(--accent);
+ color:#fff;font-size:15px;font-weight:700}
+.btn.ghost{background:none;border:1px solid var(--line);color:var(--mut)}
+.btn.sm{padding:7px 10px;font-size:12px}
+.tier{display:flex;gap:8px;align-items:center;margin-top:8px}
+.tier input{flex:1}
+.tier .x{flex:0 0 34px;text-align:center;color:var(--mut);border:none;background:none;font-size:18px}
+/* hero */
+#hero{background:linear-gradient(135deg,var(--card),var(--card));text-align:center}
+#total{font-size:40px;font-weight:800;letter-spacing:-.02em}
+#earned{font-size:15px;color:var(--ok);font-weight:600;margin-top:2px}
+#gapline{margin-top:12px;padding:12px;border-radius:12px;background:rgba(77,159,255,.10);
+ border:1px dashed var(--accent);font-size:14px;line-height:1.5}
+#gapline b{font-size:19px}
+#gapline .roi{color:var(--ok);font-weight:800}
+#gapline.max{border-color:var(--ok);background:rgba(61,220,132,.08)}
+/* cart */
+#items{margin-top:10px}
+.item{display:flex;justify-content:space-between;align-items:center;padding:7px 2px;
+ border-bottom:1px solid var(--line);font-size:15px}
+.item button{background:none;border:none;color:var(--mut);font-size:16px;padding:2px 8px}
+/* tier table */
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+th{color:var(--mut);font-weight:600;text-align:right;padding:4px 6px;font-size:11px;
+ text-transform:uppercase;letter-spacing:.05em}
+td{text-align:right;padding:7px 6px;border-top:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+tr.hit td{color:var(--ok);font-weight:600}
+tr.next td{color:var(--warn);font-weight:600}
+tr.best td:last-child::after{content:" ★"}
+.note{font-size:11.5px;color:var(--mut);line-height:1.5;margin-top:8px}
+h2{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+</style></head><body>
+
+<h1>🧮 Points Maximizer</h1>
+
+<div class="card" id="hero">
+ <div id="total">$0.00</div>
+ <div id="earned">no reward yet</div>
+ <div id="gapline">set up the event rule below 👇</div>
+</div>
+
+<div class="card">
+ <h2>Cart</h2>
+ <div class="row">
+  <div><label>item price (pre-tax)</label>
+   <input type="number" id="price" inputmode="decimal" placeholder="199.99" step="0.01"></div>
+  <button class="btn" id="add">Add</button>
+ </div>
+ <div id="items"></div>
+ <div style="margin-top:10px;display:flex;gap:8px">
+  <button class="btn ghost sm" id="clearCart">Clear cart</button>
+ </div>
+</div>
+
+<div class="card">
+ <h2>The event rule</h2>
+ <div class="seg" id="prog">
+  <button data-p="pc" class="on pc">PC Optimum</button>
+  <button data-p="tri" class="tri">Triangle</button>
+ </div>
+ <div class="seg" id="mode">
+  <button data-m="every" class="on">Every $X → reward</button>
+  <button data-m="tiers" >Spend tiers</button>
+ </div>
+
+ <div id="everyBox">
+  <div class="row">
+   <div><label>every $ spent</label><input type="number" id="evX" inputmode="decimal" placeholder="200"></div>
+   <div><label id="evYlab">get points</label><input type="number" id="evY" inputmode="decimal" placeholder="30000"></div>
+  </div>
+ </div>
+
+ <div id="tiersBox" style="display:none">
+  <div id="tiers"></div>
+  <button class="btn ghost sm" id="addTier" style="margin-top:8px">+ add tier</button>
+ </div>
+
+ <div class="note" id="progNote"></div>
+</div>
+
+<div class="card">
+ <h2>All thresholds</h2>
+ <table id="ttable"><thead><tr><th>unlock at</th><th>reward</th><th>value</th><th>% back</th></tr></thead>
+ <tbody></tbody></table>
+ <div class="note">★ = best %-back stopping point. Green = already unlocked, amber = next up.
+ Thresholds use pre-tax eligible spend; gift cards, lottery &amp; prescriptions usually don't count.</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const S={prog:'pc',mode:'every',evX:200,evY:30000,tiers:[[100,15000],[200,35000]],cart:[]};
+try{Object.assign(S,JSON.parse(localStorage.getItem('pm1')||'{}'))}catch(e){}
+const save=()=>localStorage.setItem('pm1',JSON.stringify(S));
+const money=v=>'$'+(Math.round(v*100)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const PTS=1000; // PC Optimum: 1,000 pts = $1
+const val=r=>S.prog==='pc'?r/PTS:r;              // reward -> $ value
+const rname=r=>S.prog==='pc'?r.toLocaleString()+' pts':money(r);
+
+function thresholds(){ // -> sorted [[spend, rewardCumulative]]
+ if(S.mode==='every'){
+  const x=+S.evX||0,y=+S.evY||0;if(x<=0||y<=0)return[];
+  const out=[];for(let k=1;k<=8;k++)out.push([x*k,y*k]);return out;
+ }
+ return S.tiers.filter(t=>+t[0]>0&&+t[1]>0).map(t=>[+t[0],+t[1]]).sort((a,b)=>a[0]-b[0]);
+}
+function rewardAt(total,th){let r=0;for(const[t,y]of th)if(total>=t)r=y;return r}
+
+function render(){
+ // cart
+ const total=S.cart.reduce((a,b)=>a+b,0);
+ $('#total').textContent=money(total);
+ $('#items').innerHTML=S.cart.map((p,i)=>
+  `<div class="item"><span>item ${i+1}</span><span>${money(p)}
+   <button onclick="delItem(${i})">✕</button></span></div>`).join('');
+ // engine
+ const th=thresholds();
+ const cur=rewardAt(total,th);
+ $('#earned').textContent=cur>0?`earning ${rname(cur)} (= ${money(val(cur))}) — ${(val(cur)/total*100).toFixed(1)}% back`:'no reward unlocked yet';
+ const next=th.find(([t])=>t>total);
+ const g=$('#gapline');
+ if(!th.length){g.className='';g.textContent='set up the event rule below 👇'}
+ else if(next){
+  const gap=next[0]-total, gain=val(next[1])-val(cur);
+  const roi=gain/gap*100;
+  g.className='';
+  g.innerHTML=`add <b>${money(gap)}</b> to unlock ${rname(next[1])} (= ${money(val(next[1]))})<br>
+   that filler returns <span class="roi">${roi>=1000?Math.round(roi):roi.toFixed(0)}% back</span> on the extra ${money(gap)}`;
+ }else{
+  g.className='max';
+  g.innerHTML=`✅ top threshold unlocked — earning <b>${rname(cur)}</b>. Everything above ${money(th[th.length-1][0])} earns no extra event reward.`;
+ }
+ // table
+ $('#ttable tbody').innerHTML=th.map(([t,y],i)=>{
+  const pct=val(y)/t*100;
+  const best=Math.max(...th.map(([t2,y2])=>val(y2)/t2*100));
+  const cls=[total>=t?'hit':(next&&t===next[0]?'next':''),Math.abs(pct-best)<1e-9?'best':''].join(' ');
+  return `<tr class="${cls}"><td>${money(t)}</td><td>${rname(y)}</td><td>${money(val(y))}</td><td>${pct.toFixed(1)}%</td></tr>`}).join('');
+ // labels
+ $('#evYlab').textContent=S.prog==='pc'?'get points':'get CT Money $';
+ $('#progNote').textContent=S.prog==='pc'
+  ?'PC Optimum: 1,000 pts = $1. Enter the event exactly as printed (e.g. "spend $200 get 30,000").'
+  :'Triangle: rewards are CT Money dollars. Enter the event as printed (e.g. "spend $200 get $50 CT Money").';
+ save();
+}
+function delItem(i){S.cart.splice(i,1);render()}
+
+// wire up
+$('#add').onclick=()=>{const v=parseFloat($('#price').value);
+ if(v>0){S.cart.push(Math.round(v*100)/100);$('#price').value='';$('#price').focus();render()}};
+$('#price').addEventListener('keydown',e=>{if(e.key==='Enter')$('#add').click()});
+$('#clearCart').onclick=()=>{if(confirm('Clear all items?')){S.cart=[];render()}};
+document.querySelectorAll('#prog button').forEach(b=>b.onclick=()=>{
+ S.prog=b.dataset.p;
+ document.querySelectorAll('#prog button').forEach(x=>x.className=x.dataset.p===S.prog?'on '+S.prog:x.dataset.p);
+ render()});
+document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{
+ S.mode=b.dataset.m;
+ document.querySelectorAll('#mode button').forEach(x=>x.classList.toggle('on',x.dataset.m===S.mode));
+ $('#everyBox').style.display=S.mode==='every'?'':'none';
+ $('#tiersBox').style.display=S.mode==='tiers'?'':'none';
+ render()});
+$('#evX').value=S.evX;$('#evY').value=S.evY;
+$('#evX').oninput=e=>{S.evX=e.target.value;render()};
+$('#evY').oninput=e=>{S.evY=e.target.value;render()};
+function drawTiers(){$('#tiers').innerHTML=S.tiers.map((t,i)=>
+ `<div class="tier"><input type="number" inputmode="decimal" placeholder="spend $" value="${t[0]||''}"
+   oninput="S.tiers[${i}][0]=this.value;render()">
+  <span class="x">→</span>
+  <input type="number" inputmode="decimal" placeholder="reward" value="${t[1]||''}"
+   oninput="S.tiers[${i}][1]=this.value;render()">
+  <button class="item" onclick="S.tiers.splice(${i},1);drawTiers();render()" style="background:none;border:none;color:var(--mut)">✕</button></div>`).join('')}
+$('#addTier').onclick=()=>{S.tiers.push(['','']);drawTiers()};
+// restore mode/prog UI
+document.querySelectorAll('#prog button').forEach(x=>x.className=x.dataset.p===S.prog?'on '+S.prog:x.dataset.p);
+document.querySelectorAll('#mode button').forEach(x=>x.classList.toggle('on',x.dataset.m===S.mode));
+$('#everyBox').style.display=S.mode==='every'?'':'none';
+$('#tiersBox').style.display=S.mode==='tiers'?'':'none';
+drawTiers();render();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>

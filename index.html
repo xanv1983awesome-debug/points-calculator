@@ -36,7 +36,6 @@ input[type=number],input[type=text]{width:100%;padding:11px 12px;border-radius:1
 .tier{display:flex;gap:8px;align-items:center;margin-top:8px}
 .tier input{flex:1}
 .tier .x{flex:0 0 34px;text-align:center;color:var(--mut);border:none;background:none;font-size:18px}
-/* hero */
 #hero{text-align:center}
 #total{font-size:40px;font-weight:800;letter-spacing:-.02em}
 #earned{font-size:15px;color:var(--ok);font-weight:600;margin-top:2px}
@@ -45,7 +44,6 @@ input[type=number],input[type=text]{width:100%;padding:11px 12px;border-radius:1
 #gapline b{font-size:19px}
 #gapline .roi{color:var(--ok);font-weight:800}
 #gapline.max{border-color:var(--ok);background:rgba(61,220,132,.08)}
-/* cart */
 #items{margin-top:10px}
 .item{display:flex;justify-content:space-between;align-items:center;gap:8px;
  padding:8px 2px;border-bottom:1px solid var(--line);font-size:15px}
@@ -58,11 +56,10 @@ input[type=number],input[type=text]{width:100%;padding:11px 12px;border-radius:1
 .qtyc span{min-width:24px;text-align:center;font-weight:700}
 .item .lt{min-width:74px;text-align:right;font-weight:600}
 .item .rm{background:none;border:none;color:var(--mut);font-size:15px;padding:2px 6px}
-/* advisor */
-#advisor .hint{font-size:12px;color:var(--mut);line-height:1.5}
+#advisor .hint,.hint{font-size:12px;color:var(--mut);line-height:1.5}
 tr.unlock td{color:var(--ok);font-weight:700}
 tr.cur td{color:var(--warn);font-weight:700}
-/* tier table */
+tr.afford td{color:var(--ok)}
 table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
 th{color:var(--mut);font-weight:600;text-align:right;padding:4px 6px;font-size:11px;
  text-transform:uppercase;letter-spacing:.05em}
@@ -73,6 +70,8 @@ tr.next td{color:var(--warn);font-weight:600}
 tr.best td:last-child::after{content:" ★"}
 .note{font-size:11.5px;color:var(--mut);line-height:1.5;margin-top:8px}
 h2{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+#redOut{margin-top:10px;padding:11px;border-radius:11px;background:rgba(61,220,132,.08);
+ border:1px dashed var(--ok);font-size:13.5px;line-height:1.55;display:none}
 </style></head><body>
 
 <h1>🧮 Points Maximizer</h1>
@@ -99,7 +98,7 @@ h2{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em
  <div id="items"></div>
  <div style="margin-top:10px;display:flex;gap:8px">
   <button class="btn ghost sm" id="clearCart">Clear cart</button>
-  <span class="note" style="margin:4px 0 0">tap an item → shelf advisor · use − / + to try quantities</span>
+  <span class="note" style="margin:4px 0 0">tap an item → shelf advisor · − / + to try quantities</span>
  </div>
 </div>
 
@@ -108,8 +107,7 @@ h2{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em
  <div class="hint" id="advHint"></div>
  <table><thead><tr><th>buy</th><th>cart total</th><th>reward</th><th>% back</th></tr></thead>
  <tbody id="advBody"></tbody></table>
- <div class="note">Green = this quantity unlocks a new tier. ★ marks the sweet spot
- (highest %-back). Amber = your current quantity.</div>
+ <div class="note">Green = unlocks a new tier · ★ best %-back · amber = current qty.</div>
 </div>
 
 <div class="card">
@@ -119,8 +117,9 @@ h2{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em
   <button data-p="tri" class="tri">Triangle</button>
  </div>
  <div class="seg" id="mode">
-  <button data-m="every" class="on">Every $X → reward</button>
-  <button data-m="tiers" >Spend tiers</button>
+  <button data-m="every" class="on">Every $X</button>
+  <button data-m="tiers">Spend tiers</button>
+  <button data-m="mult">20x / 30x</button>
  </div>
 
  <div id="everyBox">
@@ -135,44 +134,93 @@ h2{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em
   <button class="btn ghost sm" id="addTier" style="margin-top:8px">+ add tier</button>
  </div>
 
+ <div id="multBox" style="display:none">
+  <div class="row">
+   <div><label>multiplier (e.g. 20)</label><input type="number" id="multX" inputmode="numeric" placeholder="20"></div>
+   <div><label id="baseLab">base pts / $</label><input type="number" id="baseR" inputmode="decimal"></div>
+   <div><label>min spend $ (0 = none)</label><input type="number" id="minSp" inputmode="decimal" placeholder="50"></div>
+  </div>
+  <div class="hint" id="multHint" style="margin-top:8px"></div>
+ </div>
+
  <div class="note" id="progNote"></div>
 </div>
 
-<div class="card">
+<div class="card" id="tcard">
  <h2>All thresholds</h2>
  <table id="ttable"><thead><tr><th>unlock at</th><th>reward</th><th>value</th><th>% back</th></tr></thead>
  <tbody></tbody></table>
- <div class="note">★ = best %-back stopping point. Green = already unlocked, amber = next up.
+ <div class="note">★ = best %-back stopping point. Green = unlocked, amber = next up.
  Thresholds use pre-tax eligible spend; gift cards, lottery &amp; prescriptions usually don't count.</div>
+</div>
+
+<div class="card">
+ <h2>💰 Redemption event</h2>
+ <div id="redPC">
+  <label>your points balance</label>
+  <input type="number" id="redBal" inputmode="numeric" placeholder="137000">
+  <label style="margin-top:8px">event tiers (redeem pts → get $ off)</label>
+  <div id="redTiers"></div>
+  <button class="btn ghost sm" id="addRedTier" style="margin-top:8px">+ add tier</button>
+ </div>
+ <div id="redTRI" style="display:none">
+  <div class="row">
+   <div><label>CT Money you'll redeem $</label><input type="number" id="redAmt" inputmode="decimal" placeholder="200"></div>
+   <div><label>% back offered</label><input type="number" id="redPct" inputmode="decimal" value="20"></div>
+  </div>
+ </div>
+ <div id="redOut"></div>
+ <table id="redTable" style="display:none"><thead><tr><th>redeem</th><th>get</th><th>bonus</th><th>¢ / pt</th></tr></thead>
+ <tbody></tbody></table>
+ <div class="note" id="redNote"></div>
 </div>
 
 <script>
 const $=s=>document.querySelector(s);
-const S={prog:'pc',mode:'every',evX:200,evY:30000,tiers:[[100,15000],[200,35000]],cart:[],adv:null};
+const DEF_BASE={pc:15,tri:0.4}; // pc: pts/$ at Shoppers · tri: % CT Money
+const S={prog:'pc',mode:'every',evX:200,evY:30000,tiers:[[100,15000],[200,35000]],
+ multX:20,baseR:null,minSp:50,cart:[],adv:null,
+ redBal:'',redTiers:[[50000,75],[130000,200],[250000,400],[500000,900]],redAmt:'',redPct:20};
 try{Object.assign(S,JSON.parse(localStorage.getItem('pm1')||'{}'))}catch(e){}
-// migrate v1 carts (bare prices) -> {name,p,q}
 S.cart=(S.cart||[]).map(it=>typeof it==='number'?{name:'',p:it,q:1}:it);
+if(!S.redTiers||!S.redTiers.length)S.redTiers=[[50000,75],[130000,200],[250000,400],[500000,900]];
 const save=()=>localStorage.setItem('pm1',JSON.stringify(S));
 const money=v=>'$'+(Math.round(v*100)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-const PTS=1000; // PC Optimum: 1,000 pts = $1
+const PTS=1000;
 const val=r=>S.prog==='pc'?r/PTS:r;
-const rname=r=>S.prog==='pc'?r.toLocaleString()+' pts':money(r);
+const rname=r=>S.prog==='pc'?Math.round(r).toLocaleString()+' pts':money(r);
 const cartTotal=()=>S.cart.reduce((a,b)=>a+b.p*b.q,0);
+const base=()=>{const b=parseFloat(S.baseR);return isNaN(b)||b<=0?DEF_BASE[S.prog]:b};
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 
 function thresholds(){
  if(S.mode==='every'){
   const x=+S.evX||0,y=+S.evY||0;if(x<=0||y<=0)return[];
   const out=[];for(let k=1;k<=10;k++)out.push([x*k,y*k]);return out;
  }
- return S.tiers.filter(t=>+t[0]>0&&+t[1]>0).map(t=>[+t[0],+t[1]]).sort((a,b)=>a[0]-b[0]);
+ if(S.mode==='tiers')
+  return S.tiers.filter(t=>+t[0]>0&&+t[1]>0).map(t=>[+t[0],+t[1]]).sort((a,b)=>a[0]-b[0]);
+ return [];
 }
-function rewardAt(total,th){let r=0;for(const[t,y]of th)if(total>=t)r=y;return r}
+/* reward for any cart total, all modes.
+   PC 20x = base pts/$ × mult (300/$ at 15 base).
+   Triangle Nx = bonus (base%×N) ADDED to base → base×(N+1), per Triangle's own example. */
+function reward(total){
+ if(S.mode==='mult'){
+  const m=+S.multX||0,b=base(),min=+S.minSp||0;
+  if(m<=0||total<=0)return 0;
+  const active=total>=min;
+  if(S.prog==='pc'){const rate=active?b*m:b;return total*rate}
+  const pct=active?b*(m+1):b;return total*pct/100;
+ }
+ const th=thresholds();let r=0;for(const[t,y]of th)if(total>=t)r=y;return r;
+}
 
 function render(){
  const total=cartTotal();
  $('#total').textContent=money(total);
  $('#items').innerHTML=S.cart.map((it,i)=>
-  `<div class="item ${S.adv===i?'sel':''}" onclick="pickAdv(${i},event)">
+  `<div class="item ${S.adv===i?'sel':''}" onclick="pickAdv(${i})">
     <span class="nm">${it.name?esc(it.name):'item '+(i+1)}<small>${money(it.p)} each</small></span>
     <span class="qtyc" onclick="event.stopPropagation()">
      <button onclick="qty(${i},-1)">−</button><span>${it.q}</span><button onclick="qty(${i},1)">+</button>
@@ -180,74 +228,150 @@ function render(){
     <span class="lt">${money(it.p*it.q)}</span>
     <button class="rm" onclick="event.stopPropagation();delItem(${i})">✕</button>
    </div>`).join('');
- const th=thresholds();
- const cur=rewardAt(total,th);
+
+ const cur=reward(total);
  $('#earned').textContent=cur>0?`earning ${rname(cur)} (= ${money(val(cur))}) — ${(val(cur)/total*100).toFixed(1)}% back`:'no reward unlocked yet';
- const next=th.find(([t])=>t>total);
  const g=$('#gapline');
- if(!th.length){g.className='';g.textContent='set up the event rule below 👇'}
- else if(next){
-  const gap=next[0]-total, gain=val(next[1])-val(cur);
-  const roi=gain/gap*100;
-  g.className='';
-  g.innerHTML=`add <b>${money(gap)}</b> to unlock ${rname(next[1])} (= ${money(val(next[1]))})<br>
-   that filler returns <span class="roi">${roi>=1000?Math.round(roi):roi.toFixed(0)}% back</span> on the extra ${money(gap)}`;
+ if(S.mode==='mult'){
+  const m=+S.multX||0,min=+S.minSp||0;
+  if(m<=0){g.className='';g.textContent='enter the multiplier (e.g. 20 for a 20x event) 👇'}
+  else if(min>0&&total<min){
+   const gap=min-total, gain=val(reward(min))-val(cur);
+   g.className='';
+   g.innerHTML=`add <b>${money(gap)}</b> to activate the ${m}x event → jumps to ${rname(reward(min))} (= ${money(val(reward(min)))})<br>
+    that filler returns <span class="roi">${(gain/gap*100).toFixed(0)}% back</span> on the extra ${money(gap)}`;
+  }else{
+   g.className='max';
+   const pct=total>0?(val(cur)/total*100).toFixed(1):(S.prog==='pc'?(base()*+S.multX/10):(base()*(+S.multX+1))).toFixed(1);
+   g.innerHTML=`✅ ${m}x active — every extra $1 earns ${S.prog==='pc'?Math.round(base()*m)+' pts':money(base()*(m+1)/100)} (≈ ${pct}% back). No cap to chase — buy what makes sense.`;
+  }
  }else{
-  g.className='max';
-  g.innerHTML=`✅ top threshold unlocked — earning <b>${rname(cur)}</b>. Everything above ${money(th[th.length-1][0])} earns no extra event reward.`;
+  const th=thresholds();
+  const next=th.find(([t])=>t>total);
+  if(!th.length){g.className='';g.textContent='set up the event rule below 👇'}
+  else if(next){
+   const gap=next[0]-total, gain=val(next[1])-val(cur);
+   const roi=gain/gap*100;
+   g.className='';
+   g.innerHTML=`add <b>${money(gap)}</b> to unlock ${rname(next[1])} (= ${money(val(next[1]))})<br>
+    that filler returns <span class="roi">${roi>=1000?Math.round(roi):roi.toFixed(0)}% back</span> on the extra ${money(gap)}`;
+  }else{
+   g.className='max';
+   g.innerHTML=`✅ top threshold unlocked — earning <b>${rname(cur)}</b>. Everything above ${money(th[th.length-1][0])} earns no extra event reward.`;
+  }
  }
- renderAdvisor(total,th,cur);
- $('#ttable tbody').innerHTML=th.map(([t,y],i)=>{
-  const pct=val(y)/t*100;
-  const best=Math.max(...th.map(([t2,y2])=>val(y2)/t2*100));
-  const cls=[total>=t?'hit':(next&&t===next[0]?'next':''),Math.abs(pct-best)<1e-9?'best':''].join(' ');
-  return `<tr class="${cls}"><td>${money(t)}</td><td>${rname(y)}</td><td>${money(val(y))}</td><td>${pct.toFixed(1)}%</td></tr>`}).join('');
+
+ renderAdvisor(total);
+ // threshold table (hidden in multiplier mode)
+ $('#tcard').style.display=S.mode==='mult'?'none':'';
+ if(S.mode!=='mult'){
+  const th=thresholds();const next=th.find(([t])=>t>total);
+  $('#ttable tbody').innerHTML=th.map(([t,y])=>{
+   const pct=val(y)/t*100;
+   const best=Math.max(...th.map(([t2,y2])=>val(y2)/t2*100));
+   const cls=[total>=t?'hit':(next&&t===next[0]?'next':''),Math.abs(pct-best)<1e-9?'best':''].join(' ');
+   return `<tr class="${cls}"><td>${money(t)}</td><td>${rname(y)}</td><td>${money(val(y))}</td><td>${pct.toFixed(1)}%</td></tr>`}).join('');
+ }
+ // labels + hints
  $('#evYlab').textContent=S.prog==='pc'?'get points':'get CT Money $';
+ $('#baseLab').textContent=S.prog==='pc'?'base pts / $':'base % back';
+ if(!$('#baseR').value)$('#baseR').placeholder=DEF_BASE[S.prog];
+ const m=+S.multX||0;
+ $('#multHint').textContent=S.prog==='pc'
+  ?`PC: ${m||'N'}x × ${base()} pts/$ = ${m?Math.round(base()*m):'—'} pts per $1 (${m?(base()*m/10).toFixed(1):'—'}% back). Shoppers base is 15 pts/$.`
+  :`Triangle: bonus ${m||'N'}× base ${base()}% + base = ${m?(base()*(m+1)).toFixed(1):'—'}% back. CT base is 0.4%.`;
  $('#progNote').textContent=S.prog==='pc'
-  ?'PC Optimum: 1,000 pts = $1. Enter the event exactly as printed (e.g. "spend $200 get 30,000").'
-  :'Triangle: rewards are CT Money dollars. Enter the event as printed (e.g. "spend $200 get $50 CT Money").';
+  ?'PC Optimum: 1,000 pts = $1. Enter events exactly as printed.'
+  :'Triangle: rewards are CT Money dollars. Enter events as printed.';
+ renderRedemption();
  save();
 }
 
-/* shelf advisor: for the selected item, what do quantities 1..8 earn? */
-function renderAdvisor(total,th,curReward){
+function renderAdvisor(total){
  const box=$('#advisor');
- if(S.adv===null||!S.cart[S.adv]||!th.length){box.style.display='none';return}
+ const usable=S.cart.length&&S.adv!==null&&S.cart[S.adv]&&(S.mode==='mult'?+S.multX>0:thresholds().length);
+ if(!usable){box.style.display='none';return}
  const it=S.cart[S.adv];
  box.style.display='';
  $('#advName').textContent=(it.name||'item '+(S.adv+1))+' @ '+money(it.p);
  const others=total-it.p*it.q;
  $('#advHint').textContent=others>0
-  ?`rest of cart = ${money(others)} — table shows your TOTAL if you buy N of this item on top of it`
-  :`table shows your total if you buy N of this item`;
- let rows='',prevR=rewardAt(others,th),bestPct=-1,bestN=0;
- const pcts=[];
- for(let n=1;n<=8;n++){
-  const t=others+it.p*n, r=rewardAt(t,th);
+  ?`rest of cart = ${money(others)} — totals below include it`
+  :`totals if you buy N of this item`;
+ let rows='',prevR=reward(others),bestPct=-1,bestN=0;const pcts=[];
+ for(let n=1;n<=8;n++){const t=others+it.p*n,r=reward(t);
   const pct=t>0?val(r)/t*100:0;pcts.push(pct);
-  if(pct>bestPct+1e-9){bestPct=pct;bestN=n}
- }
- prevR=rewardAt(others,th);
+  if(pct>bestPct+1e-9){bestPct=pct;bestN=n}}
+ prevR=reward(others);
  for(let n=1;n<=8;n++){
-  const t=others+it.p*n, r=rewardAt(t,th);
-  const cls=[r>prevR?'unlock':'',n===it.q?'cur':'',''].join(' ');
+  const t=others+it.p*n,r=reward(t);
+  const unlocked=S.mode!=='mult'?r>prevR:(prevR<=0&&r>0)||( (+S.minSp||0)>0 && others+it.p*(n-1)<+S.minSp && t>=+S.minSp);
+  const cls=[unlocked?'unlock':'',n===it.q?'cur':''].join(' ');
   rows+=`<tr class="${cls}"><td>×${n}${n===it.q?' (now)':''}</td><td>${money(t)}</td>
-   <td>${r?rname(r):'—'}${r>prevR?' 🔓':''}</td><td>${pcts[n-1].toFixed(1)}%${n===bestN?' ★':''}</td></tr>`;
+   <td>${r?rname(r):'—'}${unlocked?' 🔓':''}</td><td>${pcts[n-1].toFixed(1)}%${n===bestN?' ★':''}</td></tr>`;
   prevR=r;
  }
  $('#advBody').innerHTML=rows;
 }
-function pickAdv(i,e){S.adv=S.adv===i?null:i;render()}
+
+/* redemption events */
+function drawRedTiers(){$('#redTiers').innerHTML=S.redTiers.map((t,i)=>
+ `<div class="tier"><input type="number" inputmode="numeric" placeholder="redeem pts" value="${t[0]||''}"
+   oninput="S.redTiers[${i}][0]=this.value;render()">
+  <span class="x">→</span>
+  <input type="number" inputmode="decimal" placeholder="get $ off" value="${t[1]||''}"
+   oninput="S.redTiers[${i}][1]=this.value;render()">
+  <button onclick="S.redTiers.splice(${i},1);drawRedTiers();render()" style="background:none;border:none;color:var(--mut)">✕</button></div>`).join('')}
+function renderRedemption(){
+ $('#redPC').style.display=S.prog==='pc'?'':'none';
+ $('#redTRI').style.display=S.prog==='tri'?'':'none';
+ const out=$('#redOut'),tbl=$('#redTable');
+ if(S.prog==='pc'){
+  const tiers=S.redTiers.filter(t=>+t[0]>0&&+t[1]>0).map(t=>[+t[0],+t[1]]).sort((a,b)=>a[0]-b[0]);
+  const bal=+S.redBal||0;
+  tbl.style.display=tiers.length?'':'none';
+  let bestAfford=null;
+  tbl.querySelector('tbody').innerHTML=tiers.map(([p,d])=>{
+   const bonus=d-p/PTS, cpp=d/p*100*10; // cents per point ×10? d$/p pts → ¢/pt = d*100/p
+   const afford=bal>=p;if(afford)bestAfford=[p,d];
+   return `<tr class="${afford?'afford':''}"><td>${p.toLocaleString()} pts</td><td>${money(d)}</td>
+    <td>+${money(bonus)} (${(bonus/(p/PTS)*100).toFixed(0)}%)</td><td>${(d*100/p).toFixed(2)}¢</td></tr>`}).join('');
+  if(!tiers.length){out.style.display='none';$('#redNote').textContent='Enter the event tiers as printed (e.g. redeem 50,000 → $75).';return}
+  out.style.display='';
+  if(!bal){out.innerHTML='enter your points balance to get the verdict 👆'}
+  else if(bestAfford){
+   const [p,d]=bestAfford;const next=tiers.find(([tp])=>tp>bal);
+   out.innerHTML=`✅ best you can do: <b>redeem ${p.toLocaleString()} pts → ${money(d)} off</b>
+    (worth ${(d*100/p).toFixed(2)}¢/pt vs the normal 0.10¢ — a +${money(d-p/PTS)} bonus).`
+    +(next?`<br>next tier needs ${ (next[0]-bal).toLocaleString() } more pts (${next[0].toLocaleString()} → ${money(next[1])}).`:'')
+    +`<br><small>your purchase must be ≥ the $ off; balance left after: ${(bal-p).toLocaleString()} pts</small>`;
+  }else{
+   const first=tiers[0];
+   out.innerHTML=`you're ${ (first[0]-bal).toLocaleString() } pts short of the first tier
+    (${first[0].toLocaleString()} → ${money(first[1])}). Worth waiting or earning first — redeeming outside a tier pays only 0.10¢/pt.`;
+  }
+  $('#redNote').textContent='Bonus redemption events (Shoppers "Spend Your Points"): value typically jumps from 0.10¢ to 0.15¢+ per point. Purchase must be at least the discount.';
+ }else{
+  tbl.style.display='none';
+  const amt=+S.redAmt||0,pct=+S.redPct||0;
+  if(amt>0&&pct>0){out.style.display='';
+   out.innerHTML=`redeem <b>${money(amt)}</b> CT Money → get <b>${money(amt*pct/100)}</b> back after.
+    Net cost of the redemption: ${money(amt*(1-pct/100))} of CT Money for ${money(amt)} of stuff.`
+   +(amt>1000?`<br><small>⚠️ these events usually cap the bonus at $1,000 redeemed — bonus above that may not count.</small>`:'');
+  }else{out.style.display='';out.innerHTML='enter how much CT Money you plan to redeem 👆'}
+  $('#redNote').textContent='Triangle redemption events: "redeem CT Money, get 20% back" (typically capped at $1,000 redeemed). CT Money spends like cash.';
+ }
+}
+
+function pickAdv(i){S.adv=S.adv===i?null:i;render()}
 function qty(i,d){S.cart[i].q=Math.max(1,S.cart[i].q+d);render()}
 function delItem(i){S.cart.splice(i,1);if(S.adv===i)S.adv=null;else if(S.adv>i)S.adv--;render()}
-function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 
 $('#add').onclick=()=>{const v=parseFloat($('#price').value);
  const q=Math.max(1,parseInt($('#iqty').value)||1);
  if(v>0){S.cart.push({name:$('#iname').value.trim(),p:Math.round(v*100)/100,q});
   $('#price').value='';$('#iname').value='';$('#iqty').value=1;
-  S.adv=S.cart.length-1; // auto-open the advisor for what you just scanned
-  render()}};
+  S.adv=S.cart.length-1;render()}};
 $('#price').addEventListener('keydown',e=>{if(e.key==='Enter')$('#add').click()});
 $('#clearCart').onclick=()=>{if(confirm('Clear all items?')){S.cart=[];S.adv=null;render()}};
 document.querySelectorAll('#prog button').forEach(b=>b.onclick=()=>{
@@ -255,14 +379,25 @@ document.querySelectorAll('#prog button').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('#prog button').forEach(x=>x.className=x.dataset.p===S.prog?'on '+S.prog:x.dataset.p);
  render()});
 document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{
- S.mode=b.dataset.m;
+ S.mode=b.dataset.m;syncModeUI();render()});
+function syncModeUI(){
  document.querySelectorAll('#mode button').forEach(x=>x.classList.toggle('on',x.dataset.m===S.mode));
  $('#everyBox').style.display=S.mode==='every'?'':'none';
  $('#tiersBox').style.display=S.mode==='tiers'?'':'none';
- render()});
+ $('#multBox').style.display=S.mode==='mult'?'':'none';
+}
 $('#evX').value=S.evX;$('#evY').value=S.evY;
 $('#evX').oninput=e=>{S.evX=e.target.value;render()};
 $('#evY').oninput=e=>{S.evY=e.target.value;render()};
+$('#multX').value=S.multX||'';$('#minSp').value=S.minSp||'';if(S.baseR)$('#baseR').value=S.baseR;
+$('#multX').oninput=e=>{S.multX=e.target.value;render()};
+$('#baseR').oninput=e=>{S.baseR=e.target.value;render()};
+$('#minSp').oninput=e=>{S.minSp=e.target.value;render()};
+$('#redBal').value=S.redBal||'';$('#redAmt').value=S.redAmt||'';$('#redPct').value=S.redPct||20;
+$('#redBal').oninput=e=>{S.redBal=e.target.value;render()};
+$('#redAmt').oninput=e=>{S.redAmt=e.target.value;render()};
+$('#redPct').oninput=e=>{S.redPct=e.target.value;render()};
+$('#addRedTier').onclick=()=>{S.redTiers.push(['','']);drawRedTiers()};
 function drawTiers(){$('#tiers').innerHTML=S.tiers.map((t,i)=>
  `<div class="tier"><input type="number" inputmode="decimal" placeholder="spend $" value="${t[0]||''}"
    oninput="S.tiers[${i}][0]=this.value;render()">
@@ -272,9 +407,6 @@ function drawTiers(){$('#tiers').innerHTML=S.tiers.map((t,i)=>
   <button onclick="S.tiers.splice(${i},1);drawTiers();render()" style="background:none;border:none;color:var(--mut)">✕</button></div>`).join('')}
 $('#addTier').onclick=()=>{S.tiers.push(['','']);drawTiers()};
 document.querySelectorAll('#prog button').forEach(x=>x.className=x.dataset.p===S.prog?'on '+S.prog:x.dataset.p);
-document.querySelectorAll('#mode button').forEach(x=>x.classList.toggle('on',x.dataset.m===S.mode));
-$('#everyBox').style.display=S.mode==='every'?'':'none';
-$('#tiersBox').style.display=S.mode==='tiers'?'':'none';
-drawTiers();render();
+syncModeUI();drawTiers();drawRedTiers();render();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script></body></html>

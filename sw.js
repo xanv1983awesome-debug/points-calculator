@@ -1,5 +1,5 @@
 // offline cache — the calculator must work inside a store with weak signal
-const C = 'pm-v2';
+const C = 'pm-v3';
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(C).then(c => c.addAll(['./', './index.html'])));
   self.skipWaiting();

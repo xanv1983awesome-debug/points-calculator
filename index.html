@@ -28,6 +28,7 @@ input[type=number],input[type=text]{width:100%;padding:11px 12px;border-radius:1
  border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:17px}
 .row{display:flex;gap:8px;align-items:flex-end}
 .row>div{flex:1}
+.row>div.qty{flex:0 0 74px}
 .btn{padding:11px 14px;border-radius:10px;border:none;background:var(--accent);
  color:#fff;font-size:15px;font-weight:700}
 .btn.ghost{background:none;border:1px solid var(--line);color:var(--mut)}
@@ -36,7 +37,7 @@ input[type=number],input[type=text]{width:100%;padding:11px 12px;border-radius:1
 .tier input{flex:1}
 .tier .x{flex:0 0 34px;text-align:center;color:var(--mut);border:none;background:none;font-size:18px}
 /* hero */
-#hero{background:linear-gradient(135deg,var(--card),var(--card));text-align:center}
+#hero{text-align:center}
 #total{font-size:40px;font-weight:800;letter-spacing:-.02em}
 #earned{font-size:15px;color:var(--ok);font-weight:600;margin-top:2px}
 #gapline{margin-top:12px;padding:12px;border-radius:12px;background:rgba(77,159,255,.10);
@@ -46,9 +47,21 @@ input[type=number],input[type=text]{width:100%;padding:11px 12px;border-radius:1
 #gapline.max{border-color:var(--ok);background:rgba(61,220,132,.08)}
 /* cart */
 #items{margin-top:10px}
-.item{display:flex;justify-content:space-between;align-items:center;padding:7px 2px;
- border-bottom:1px solid var(--line);font-size:15px}
-.item button{background:none;border:none;color:var(--mut);font-size:16px;padding:2px 8px}
+.item{display:flex;justify-content:space-between;align-items:center;gap:8px;
+ padding:8px 2px;border-bottom:1px solid var(--line);font-size:15px}
+.item.sel{background:rgba(77,159,255,.08);border-radius:8px;padding:8px 6px}
+.item .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .nm small{display:block;color:var(--mut);font-size:11.5px}
+.qtyc{display:flex;align-items:center;gap:2px}
+.qtyc button{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);
+ background:none;color:var(--ink);font-size:16px;font-weight:700}
+.qtyc span{min-width:24px;text-align:center;font-weight:700}
+.item .lt{min-width:74px;text-align:right;font-weight:600}
+.item .rm{background:none;border:none;color:var(--mut);font-size:15px;padding:2px 6px}
+/* advisor */
+#advisor .hint{font-size:12px;color:var(--mut);line-height:1.5}
+tr.unlock td{color:var(--ok);font-weight:700}
+tr.cur td{color:var(--warn);font-weight:700}
 /* tier table */
 table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
 th{color:var(--mut);font-weight:600;text-align:right;padding:4px 6px;font-size:11px;
@@ -73,14 +86,30 @@ h2{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em
 <div class="card">
  <h2>Cart</h2>
  <div class="row">
-  <div><label>item price (pre-tax)</label>
+  <div style="flex:1.4"><label>item name (optional)</label>
+   <input type="text" id="iname" placeholder="LEGO Botanical"></div>
+ </div>
+ <div class="row" style="margin-top:6px">
+  <div><label>price (pre-tax)</label>
    <input type="number" id="price" inputmode="decimal" placeholder="199.99" step="0.01"></div>
+  <div class="qty"><label>qty</label>
+   <input type="number" id="iqty" inputmode="numeric" value="1" min="1"></div>
   <button class="btn" id="add">Add</button>
  </div>
  <div id="items"></div>
  <div style="margin-top:10px;display:flex;gap:8px">
   <button class="btn ghost sm" id="clearCart">Clear cart</button>
+  <span class="note" style="margin:4px 0 0">tap an item → shelf advisor · use − / + to try quantities</span>
  </div>
+</div>
+
+<div class="card" id="advisor" style="display:none">
+ <h2>🛒 Shelf advisor — <span id="advName"></span></h2>
+ <div class="hint" id="advHint"></div>
+ <table><thead><tr><th>buy</th><th>cart total</th><th>reward</th><th>% back</th></tr></thead>
+ <tbody id="advBody"></tbody></table>
+ <div class="note">Green = this quantity unlocks a new tier. ★ marks the sweet spot
+ (highest %-back). Amber = your current quantity.</div>
 </div>
 
 <div class="card">
@@ -119,31 +148,38 @@ h2{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em
 
 <script>
 const $=s=>document.querySelector(s);
-const S={prog:'pc',mode:'every',evX:200,evY:30000,tiers:[[100,15000],[200,35000]],cart:[]};
+const S={prog:'pc',mode:'every',evX:200,evY:30000,tiers:[[100,15000],[200,35000]],cart:[],adv:null};
 try{Object.assign(S,JSON.parse(localStorage.getItem('pm1')||'{}'))}catch(e){}
+// migrate v1 carts (bare prices) -> {name,p,q}
+S.cart=(S.cart||[]).map(it=>typeof it==='number'?{name:'',p:it,q:1}:it);
 const save=()=>localStorage.setItem('pm1',JSON.stringify(S));
 const money=v=>'$'+(Math.round(v*100)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const PTS=1000; // PC Optimum: 1,000 pts = $1
-const val=r=>S.prog==='pc'?r/PTS:r;              // reward -> $ value
+const val=r=>S.prog==='pc'?r/PTS:r;
 const rname=r=>S.prog==='pc'?r.toLocaleString()+' pts':money(r);
+const cartTotal=()=>S.cart.reduce((a,b)=>a+b.p*b.q,0);
 
-function thresholds(){ // -> sorted [[spend, rewardCumulative]]
+function thresholds(){
  if(S.mode==='every'){
   const x=+S.evX||0,y=+S.evY||0;if(x<=0||y<=0)return[];
-  const out=[];for(let k=1;k<=8;k++)out.push([x*k,y*k]);return out;
+  const out=[];for(let k=1;k<=10;k++)out.push([x*k,y*k]);return out;
  }
  return S.tiers.filter(t=>+t[0]>0&&+t[1]>0).map(t=>[+t[0],+t[1]]).sort((a,b)=>a[0]-b[0]);
 }
 function rewardAt(total,th){let r=0;for(const[t,y]of th)if(total>=t)r=y;return r}
 
 function render(){
- // cart
- const total=S.cart.reduce((a,b)=>a+b,0);
+ const total=cartTotal();
  $('#total').textContent=money(total);
- $('#items').innerHTML=S.cart.map((p,i)=>
-  `<div class="item"><span>item ${i+1}</span><span>${money(p)}
-   <button onclick="delItem(${i})">✕</button></span></div>`).join('');
- // engine
+ $('#items').innerHTML=S.cart.map((it,i)=>
+  `<div class="item ${S.adv===i?'sel':''}" onclick="pickAdv(${i},event)">
+    <span class="nm">${it.name?esc(it.name):'item '+(i+1)}<small>${money(it.p)} each</small></span>
+    <span class="qtyc" onclick="event.stopPropagation()">
+     <button onclick="qty(${i},-1)">−</button><span>${it.q}</span><button onclick="qty(${i},1)">+</button>
+    </span>
+    <span class="lt">${money(it.p*it.q)}</span>
+    <button class="rm" onclick="event.stopPropagation();delItem(${i})">✕</button>
+   </div>`).join('');
  const th=thresholds();
  const cur=rewardAt(total,th);
  $('#earned').textContent=cur>0?`earning ${rname(cur)} (= ${money(val(cur))}) — ${(val(cur)/total*100).toFixed(1)}% back`:'no reward unlocked yet';
@@ -160,26 +196,60 @@ function render(){
   g.className='max';
   g.innerHTML=`✅ top threshold unlocked — earning <b>${rname(cur)}</b>. Everything above ${money(th[th.length-1][0])} earns no extra event reward.`;
  }
- // table
+ renderAdvisor(total,th,cur);
  $('#ttable tbody').innerHTML=th.map(([t,y],i)=>{
   const pct=val(y)/t*100;
   const best=Math.max(...th.map(([t2,y2])=>val(y2)/t2*100));
   const cls=[total>=t?'hit':(next&&t===next[0]?'next':''),Math.abs(pct-best)<1e-9?'best':''].join(' ');
   return `<tr class="${cls}"><td>${money(t)}</td><td>${rname(y)}</td><td>${money(val(y))}</td><td>${pct.toFixed(1)}%</td></tr>`}).join('');
- // labels
  $('#evYlab').textContent=S.prog==='pc'?'get points':'get CT Money $';
  $('#progNote').textContent=S.prog==='pc'
   ?'PC Optimum: 1,000 pts = $1. Enter the event exactly as printed (e.g. "spend $200 get 30,000").'
   :'Triangle: rewards are CT Money dollars. Enter the event as printed (e.g. "spend $200 get $50 CT Money").';
  save();
 }
-function delItem(i){S.cart.splice(i,1);render()}
 
-// wire up
+/* shelf advisor: for the selected item, what do quantities 1..8 earn? */
+function renderAdvisor(total,th,curReward){
+ const box=$('#advisor');
+ if(S.adv===null||!S.cart[S.adv]||!th.length){box.style.display='none';return}
+ const it=S.cart[S.adv];
+ box.style.display='';
+ $('#advName').textContent=(it.name||'item '+(S.adv+1))+' @ '+money(it.p);
+ const others=total-it.p*it.q;
+ $('#advHint').textContent=others>0
+  ?`rest of cart = ${money(others)} — table shows your TOTAL if you buy N of this item on top of it`
+  :`table shows your total if you buy N of this item`;
+ let rows='',prevR=rewardAt(others,th),bestPct=-1,bestN=0;
+ const pcts=[];
+ for(let n=1;n<=8;n++){
+  const t=others+it.p*n, r=rewardAt(t,th);
+  const pct=t>0?val(r)/t*100:0;pcts.push(pct);
+  if(pct>bestPct+1e-9){bestPct=pct;bestN=n}
+ }
+ prevR=rewardAt(others,th);
+ for(let n=1;n<=8;n++){
+  const t=others+it.p*n, r=rewardAt(t,th);
+  const cls=[r>prevR?'unlock':'',n===it.q?'cur':'',''].join(' ');
+  rows+=`<tr class="${cls}"><td>×${n}${n===it.q?' (now)':''}</td><td>${money(t)}</td>
+   <td>${r?rname(r):'—'}${r>prevR?' 🔓':''}</td><td>${pcts[n-1].toFixed(1)}%${n===bestN?' ★':''}</td></tr>`;
+  prevR=r;
+ }
+ $('#advBody').innerHTML=rows;
+}
+function pickAdv(i,e){S.adv=S.adv===i?null:i;render()}
+function qty(i,d){S.cart[i].q=Math.max(1,S.cart[i].q+d);render()}
+function delItem(i){S.cart.splice(i,1);if(S.adv===i)S.adv=null;else if(S.adv>i)S.adv--;render()}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+
 $('#add').onclick=()=>{const v=parseFloat($('#price').value);
- if(v>0){S.cart.push(Math.round(v*100)/100);$('#price').value='';$('#price').focus();render()}};
+ const q=Math.max(1,parseInt($('#iqty').value)||1);
+ if(v>0){S.cart.push({name:$('#iname').value.trim(),p:Math.round(v*100)/100,q});
+  $('#price').value='';$('#iname').value='';$('#iqty').value=1;
+  S.adv=S.cart.length-1; // auto-open the advisor for what you just scanned
+  render()}};
 $('#price').addEventListener('keydown',e=>{if(e.key==='Enter')$('#add').click()});
-$('#clearCart').onclick=()=>{if(confirm('Clear all items?')){S.cart=[];render()}};
+$('#clearCart').onclick=()=>{if(confirm('Clear all items?')){S.cart=[];S.adv=null;render()}};
 document.querySelectorAll('#prog button').forEach(b=>b.onclick=()=>{
  S.prog=b.dataset.p;
  document.querySelectorAll('#prog button').forEach(x=>x.className=x.dataset.p===S.prog?'on '+S.prog:x.dataset.p);
@@ -199,9 +269,8 @@ function drawTiers(){$('#tiers').innerHTML=S.tiers.map((t,i)=>
   <span class="x">→</span>
   <input type="number" inputmode="decimal" placeholder="reward" value="${t[1]||''}"
    oninput="S.tiers[${i}][1]=this.value;render()">
-  <button class="item" onclick="S.tiers.splice(${i},1);drawTiers();render()" style="background:none;border:none;color:var(--mut)">✕</button></div>`).join('')}
+  <button onclick="S.tiers.splice(${i},1);drawTiers();render()" style="background:none;border:none;color:var(--mut)">✕</button></div>`).join('')}
 $('#addTier').onclick=()=>{S.tiers.push(['','']);drawTiers()};
-// restore mode/prog UI
 document.querySelectorAll('#prog button').forEach(x=>x.className=x.dataset.p===S.prog?'on '+S.prog:x.dataset.p);
 document.querySelectorAll('#mode button').forEach(x=>x.classList.toggle('on',x.dataset.m===S.mode));
 $('#everyBox').style.display=S.mode==='every'?'':'none';

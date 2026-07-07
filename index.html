@@ -230,7 +230,12 @@ function render(){
    </div>`).join('');
 
  const cur=reward(total);
- $('#earned').textContent=cur>0?`earning ${rname(cur)} (= ${money(val(cur))}) — ${(val(cur)/total*100).toFixed(1)}% back`:'no reward unlocked yet';
+ let earnedTxt=cur>0?`earning ${rname(cur)} (= ${money(val(cur))}) — ${(val(cur)/total*100).toFixed(1)}% back`:'no reward unlocked yet';
+ if(S.prog==='pc'&&cur>0){ // PC redeems only in 10,000-pt ($10) increments
+  const spendable=Math.floor(cur/10000)*10;
+  earnedTxt+=spendable>0?` · spendable today: $${spendable}`:' · below the 10,000-pt redemption minimum';
+ }
+ $('#earned').textContent=earnedTxt;
  const g=$('#gapline');
  if(S.mode==='mult'){
   const m=+S.multX||0,min=+S.minSp||0;
@@ -350,7 +355,7 @@ function renderRedemption(){
    out.innerHTML=`you're ${ (first[0]-bal).toLocaleString() } pts short of the first tier
     (${first[0].toLocaleString()} → ${money(first[1])}). Worth waiting or earning first — redeeming outside a tier pays only 0.10¢/pt.`;
   }
-  $('#redNote').textContent='Bonus redemption events (Shoppers "Spend Your Points"): value typically jumps from 0.10¢ to 0.15¢+ per point. Purchase must be at least the discount.';
+  $('#redNote').textContent='Bonus redemption events (Shoppers "Spend Your Points"): value typically jumps from 0.10¢ to 0.15¢+ per point. Purchase must be at least the discount. Outside events, PC points redeem only in 10,000-pt ($10) steps.';
  }else{
   tbl.style.display='none';
   const amt=+S.redAmt||0,pct=+S.redPct||0;

@@ -4,7 +4,9 @@ Baked into the calculator's math — re-verify if a program changes its rules.
 
 ## PC Optimum (Shoppers Drug Mart, Real Canadian Superstore, Loblaws…)
 
-- 1,000 points = $1 (1 pt = 0.1¢). Minimum redemption 10,000 = $10.
+- 10,000 points = $10 (1 pt = 0.1¢). **Redeemable only in 10,000-pt increments, 10,000
+  minimum** (per PC Financial's official FAQ) — value accrues per point, but spendable
+  value steps in $10 jumps.
 - Base earn at Shoppers: **15 pts/$1** (1.5% back). Superstore base earn is lower/offer-driven — set the base field accordingly.
 - **Multiplier events ("20x the points")**: multiply the base → 20x at Shoppers = 300 pts/$1 = **30% back**. Usually gated ("when you spend $50+"); targeted offers can be 25x+ with PC Financial cards.
 - **Bonus redemption events ("Spend Your Points" / Super Redemption)**: tiered.

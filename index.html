@@ -79,6 +79,7 @@ h2{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em
 <div class="card" id="hero">
  <div id="total">$0.00</div>
  <div id="earned">no reward yet</div>
+ <div id="dealline" style="display:none;margin-top:6px;font-size:13.5px;line-height:1.5"></div>
  <div id="gapline">set up the event rule below 👇</div>
 </div>
 
@@ -89,7 +90,9 @@ h2{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em
    <input type="text" id="iname" placeholder="LEGO Botanical"></div>
  </div>
  <div class="row" style="margin-top:6px">
-  <div><label>price (pre-tax)</label>
+  <div><label>MSRP $ (optional)</label>
+   <input type="number" id="imsrp" inputmode="decimal" placeholder="259.99" step="0.01"></div>
+  <div><label>store price</label>
    <input type="number" id="price" inputmode="decimal" placeholder="199.99" step="0.01"></div>
   <div class="qty"><label>qty</label>
    <input type="number" id="iqty" inputmode="numeric" value="1" min="1"></div>
@@ -105,9 +108,10 @@ h2{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em
 <div class="card" id="advisor" style="display:none">
  <h2>🛒 Shelf advisor — <span id="advName"></span></h2>
  <div class="hint" id="advHint"></div>
- <table><thead><tr><th>buy</th><th>cart total</th><th>reward</th><th>% back</th></tr></thead>
+ <table><thead><tr><th>buy</th><th>cart total</th><th>reward</th><th>% back</th><th>eff. each</th></tr></thead>
  <tbody id="advBody"></tbody></table>
- <div class="note">Green = unlocks a new tier · ★ best %-back · amber = current qty.</div>
+ <div class="note">Green = unlocks a new tier · ★ best %-back · amber = current qty ·
+ eff. each = price minus this item's share of the points, per unit.</div>
 </div>
 
 <div class="card">
@@ -182,7 +186,7 @@ const S={prog:'pc',mode:'every',evX:200,evY:30000,tiers:[[100,15000],[200,35000]
  multX:20,baseR:null,minSp:50,cart:[],adv:null,
  redBal:'',redTiers:[[50000,75],[130000,200],[250000,400],[500000,900]],redAmt:'',redPct:20};
 try{Object.assign(S,JSON.parse(localStorage.getItem('pm1')||'{}'))}catch(e){}
-S.cart=(S.cart||[]).map(it=>typeof it==='number'?{name:'',p:it,q:1}:it);
+S.cart=(S.cart||[]).map(it=>typeof it==='number'?{name:'',p:it,q:1,msrp:0}:Object.assign({msrp:0},it));
 if(!S.redTiers||!S.redTiers.length)S.redTiers=[[50000,75],[130000,200],[250000,400],[500000,900]];
 const save=()=>localStorage.setItem('pm1',JSON.stringify(S));
 const money=v=>'$'+(Math.round(v*100)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -221,7 +225,7 @@ function render(){
  $('#total').textContent=money(total);
  $('#items').innerHTML=S.cart.map((it,i)=>
   `<div class="item ${S.adv===i?'sel':''}" onclick="pickAdv(${i})">
-    <span class="nm">${it.name?esc(it.name):'item '+(i+1)}<small>${money(it.p)} each</small></span>
+    <span class="nm">${it.name?esc(it.name):'item '+(i+1)}<small>${it.msrp>0?`<s>${money(it.msrp)}</s> → `:''}${money(it.p)} each${it.msrp>it.p?` (−${Math.round((1-it.p/it.msrp)*100)}%)`:''}</small></span>
     <span class="qtyc" onclick="event.stopPropagation()">
      <button onclick="qty(${i},-1)">−</button><span>${it.q}</span><button onclick="qty(${i},1)">+</button>
     </span>
@@ -236,6 +240,17 @@ function render(){
   earnedTxt+=spendable>0?` · spendable today: $${spendable}`:' · below the 10,000-pt redemption minimum';
  }
  $('#earned').textContent=earnedTxt;
+ // total-deal line: sale savings off MSRP + points value = total discount + effective cost
+ const msrpTotal=S.cart.reduce((a,b)=>a+(b.msrp>0?b.msrp:b.p)*b.q,0);
+ const saleSave=msrpTotal-total, ptsVal=val(cur);
+ const dl=$('#dealline');
+ if(total>0&&(saleSave>0.005||ptsVal>0)){
+  const disc=saleSave+ptsVal;
+  dl.style.display='';
+  dl.innerHTML=`💸 sale −${money(saleSave)} + points −${money(ptsVal)} =
+   <b>${money(disc)} off MSRP (${msrpTotal>0?(disc/msrpTotal*100).toFixed(1):0}%)</b><br>
+   effective cost: <b>${money(total-ptsVal)}</b> for ${money(msrpTotal)} of goods`;
+ }else dl.style.display='none';
  const g=$('#gapline');
  if(S.mode==='mult'){
   const m=+S.multX||0,min=+S.minSp||0;
@@ -308,12 +323,15 @@ function renderAdvisor(total){
   const pct=t>0?val(r)/t*100:0;pcts.push(pct);
   if(pct>bestPct+1e-9){bestPct=pct;bestN=n}}
  prevR=reward(others);
+ const baseR0=reward(others);
  for(let n=1;n<=8;n++){
   const t=others+it.p*n,r=reward(t);
   const unlocked=S.mode!=='mult'?r>prevR:(prevR<=0&&r>0)||( (+S.minSp||0)>0 && others+it.p*(n-1)<+S.minSp && t>=+S.minSp);
   const cls=[unlocked?'unlock':'',n===it.q?'cur':''].join(' ');
+  const effEach=it.p-(val(r)-val(baseR0))/n; // item's incremental points credited to it
   rows+=`<tr class="${cls}"><td>×${n}${n===it.q?' (now)':''}</td><td>${money(t)}</td>
-   <td>${r?rname(r):'—'}${unlocked?' 🔓':''}</td><td>${pcts[n-1].toFixed(1)}%${n===bestN?' ★':''}</td></tr>`;
+   <td>${r?rname(r):'—'}${unlocked?' 🔓':''}</td><td>${pcts[n-1].toFixed(1)}%${n===bestN?' ★':''}</td>
+   <td>${money(Math.max(0,effEach))}</td></tr>`;
   prevR=r;
  }
  $('#advBody').innerHTML=rows;
@@ -373,9 +391,10 @@ function qty(i,d){S.cart[i].q=Math.max(1,S.cart[i].q+d);render()}
 function delItem(i){S.cart.splice(i,1);if(S.adv===i)S.adv=null;else if(S.adv>i)S.adv--;render()}
 
 $('#add').onclick=()=>{const v=parseFloat($('#price').value);
+ const m=parseFloat($('#imsrp').value)||0;
  const q=Math.max(1,parseInt($('#iqty').value)||1);
- if(v>0){S.cart.push({name:$('#iname').value.trim(),p:Math.round(v*100)/100,q});
-  $('#price').value='';$('#iname').value='';$('#iqty').value=1;
+ if(v>0){S.cart.push({name:$('#iname').value.trim(),p:Math.round(v*100)/100,q,msrp:m>0?Math.round(m*100)/100:0});
+  $('#price').value='';$('#iname').value='';$('#imsrp').value='';$('#iqty').value=1;
   S.adv=S.cart.length-1;render()}};
 $('#price').addEventListener('keydown',e=>{if(e.key==='Enter')$('#add').click()});
 $('#clearCart').onclick=()=>{if(confirm('Clear all items?')){S.cart=[];S.adv=null;render()}};
